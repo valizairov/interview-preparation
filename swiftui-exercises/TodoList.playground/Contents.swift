@@ -1,17 +1,29 @@
 import SwiftUI
 import PlaygroundSupport
 
-struct TodoItem: Identifiable, Codable {
+struct TodoItem: Identifiable, Codable, Equatable {
     let id = UUID()
     let title: String
+    var done: Bool = false
 }
 
 struct TodoListView: View {
     @State private var todos: [TodoItem] = UserDefaults.standard.loadTodos()
     @State private var newTodo: String = ""
+    @State private var filter: Filter = .all
+    
+    enum Filter { case all, completed, pending }
+    
+    var filteredTodos: [TodoItem] {
+        switch filter {
+        case .all: return todos
+        case .completed: return todos.filter { $0.done }
+        case .pending: return todos.filter{ !$0.done}
+        }
+    }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack {
                 HStack {
                     TextField("New task", text: $newTodo)
@@ -22,14 +34,27 @@ struct TodoListView: View {
                 }
                 .padding()
                 
+                HStack {
+                    Button("All") { filter = .all }
+                    Button("Completed") { filter = .completed }
+                    Button("Pending") { filter = .pending }
+                }
+                
                 List {
-                    ForEach(todos) { todo in
-                        Text(todo.title)
+                    ForEach(filteredTodos) { todo in
+                        HStack {
+                            Button(action: { toggle(todo) }) {
+                                Image(systemName: todo.done ? "checkmark.square" : "square")
+                            }
+                            Text(todo.title)
+                                .strikethrough(todo.done)
+                        }
+                        .animation(.default, value: todos)
                     }
                     .onDelete(perform: deleteTodo)
                 }
             }
-            .navigationTitle("To Do List")
+            .padding()
         }
     }
     
@@ -44,6 +69,13 @@ struct TodoListView: View {
     func deleteTodo(at offsets: IndexSet) {
         todos.remove(atOffsets: offsets)
         UserDefaults.standard.saveTodos(todos)
+    }
+    
+    func toggle(_ todo: TodoItem) {
+        if let index = todos.firstIndex(where: {$0.id == todo.id }) {
+            todos[index].done.toggle()
+            UserDefaults.standard.saveTodos(todos)
+        }
     }
 }
 
